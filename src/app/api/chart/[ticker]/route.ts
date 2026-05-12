@@ -42,6 +42,8 @@ export async function GET(
     '1mo': '1d',
     '3mo': '1d',
     '1y': '1wk',
+    '5y': '1mo',
+    'max': '1mo',
   }
   const interval = intervalMap[period] ?? '1d'
 

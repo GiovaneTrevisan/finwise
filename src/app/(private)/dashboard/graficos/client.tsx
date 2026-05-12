@@ -53,6 +53,8 @@ const PERIODS = [
   { label: '1 Mês', value: '1mo' },
   { label: '3 Meses', value: '3mo' },
   { label: '1 Ano', value: '1y' },
+  { label: '5 Anos', value: '5y' },
+  { label: 'Total', value: 'max' },
 ]
 
 const SUGGESTED_QUESTIONS = [
@@ -87,9 +89,19 @@ function buildChartSummary(data: ChartData): string {
   return `Ativo: ${data.ticker} (${data.name}). Período: ${prices[0].date} a ${prices[prices.length - 1].date}. Preço inicial: ${first.toFixed(2)}, atual: ${last.toFixed(2)}, variação: ${change.toFixed(2)}% (${direction}). Máxima: ${maxPrice.toFixed(2)}, Mínima: ${minPrice.toFixed(2)}. Volume médio diário: ${Math.round(avgVol).toLocaleString('pt-BR')}.`
 }
 
-function formatDate(d: string) {
+function formatAxisDate(d: string, period: string) {
+  if (!d) return ''
   const dt = new Date(d + 'T00:00:00')
+  if (period === '5y' || period === 'max') {
+    return dt.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+  }
   return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
+
+function formatTooltipDate(d: string) {
+  if (!d) return ''
+  const dt = new Date(d + 'T00:00:00')
+  return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function uid() {
@@ -170,8 +182,8 @@ function useStreamingChat(apiPath: string) {
 
 type TooltipProps = {
   active?: boolean
-  payload?: Array<{ value: number }>
-  label?: string
+  payload?: any
+  label?: any
   prices: PricePoint[]
 }
 
@@ -180,7 +192,7 @@ function ChartTooltip({ active, payload, label, prices }: TooltipProps) {
   const d = prices.find((p) => p.date === label)
   return (
     <div className="bg-popover border border-border rounded-lg p-3 shadow-xl text-xs space-y-1 min-w-[160px]">
-      <p className="font-semibold text-foreground mb-2">{label ? formatDate(label) : ''}</p>
+      <p className="font-semibold text-foreground mb-2">{label ? formatTooltipDate(label) : ''}</p>
       <p className="text-muted-foreground">
         Fechamento: <span className="text-foreground font-medium">R$ {payload[0]?.value?.toFixed(2)}</span>
       </p>
@@ -244,7 +256,16 @@ export function GraficosClient({ userAssets }: { userAssets: UserAsset[] }) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (!tickerInput.trim()) return
-    fetchChart(tickerInput.trim().toUpperCase(), period)
+
+    let formattedTicker = tickerInput.trim().toUpperCase()
+    
+    // Auto-append .SA for standard Brazilian B3 tickers (e.g., PETR4, WEGE3, AAPL34)
+    // Matches 4 letters followed by 1 or 2 numbers, without any existing dot suffix
+    if (/^[A-Z]{4}\d{1,2}$/.test(formattedTicker)) {
+      formattedTicker += '.SA'
+    }
+
+    fetchChart(formattedTicker, period)
   }
 
   const handleSend = (e: React.FormEvent) => {
@@ -408,7 +429,7 @@ export function GraficosClient({ userAssets }: { userAssets: UserAsset[] }) {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                     <XAxis
                       dataKey="date"
-                      tickFormatter={formatDate}
+                      tickFormatter={(val) => formatAxisDate(val, period)}
                       tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                       tickLine={false}
                       axisLine={false}
