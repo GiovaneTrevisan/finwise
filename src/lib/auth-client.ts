@@ -7,5 +7,4 @@ export const authClient = createAuthClient({
     inferAdditionalFields<typeof auth>(),
   ],
 })
-
 export const { signIn, signOut, useSession } = authClient
